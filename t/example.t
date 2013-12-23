@@ -7,7 +7,6 @@ use_ok("TOML");
 
 # Original structre
 my $toml = q{# This is a TOML document. Boom.
-
 title = "TOML Example"
 
 [owner]
@@ -35,6 +34,37 @@ enabled = true
 
 [clients]
 data = [ ["gamma", "delta"], [1, 2] ] # just an update to make sure parsers support it
+
+[[products]]
+name = "Hammer"
+sku = 738594937
+
+[[products]]
+
+[[products]]
+name = "Nail"
+sku = 284758393
+color = "gray"
+
+[[fruit]]
+  name = "apple"
+
+  [fruit.physical]
+    color = "red"
+    shape = "round"
+
+  [[fruit.variety]]
+    name = "red delicious"
+
+  [[fruit.variety]]
+    name = "granny smith"
+
+[[fruit]]
+  name = "banana"
+
+  [[fruit.variety]]
+    name = "plantain"
+
 };
 
 # Expected structure
@@ -68,6 +98,37 @@ Likes tater tots and beer.',
                                  ]
                                ]
                      },
+          'fruit' => [
+                      {
+                      'name' => 'apple',
+                      'physical' => {
+                                    'color' => 'red',
+                                    'shape' => 'round'
+                                    },
+                      'variety' => [
+                                    { 'name' => 'red delicious' },
+                                    { 'name' => 'granny smith' }
+                                   ]
+                      },
+                      {
+                      'name' => 'banana',
+                      'variety' => [
+                                    { 'name' => 'plantain' }
+                                   ]
+                      }
+                   ],
+          'products' => [
+                         {
+                         'name' => 'Hammer',
+                         'sku' => 738594937
+                         },
+                         {},
+                         {
+                         'name' => 'Nail',
+                         'sku' => 284758393,
+                         'color' => 'gray'
+                         }
+                        ],
           'servers' => {
                        'alpha' => {
                                   'dc' => 'eqdc10',
@@ -85,3 +146,4 @@ Likes tater tots and beer.',
 
 my $new = from_toml($toml);
 is_deeply($data, $new, "Structure matches example data");
+

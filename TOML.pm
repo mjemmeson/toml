@@ -135,7 +135,7 @@ sub from_toml {
         map { s/#.*//; $_ }
         split /[\n\r]/, $string;
 
-    while ($string) {
+STRING: while ($string) {
         # strip leading whitespace, including newlines
         $string =~ s/^\s*//s;
         $lineno++;
@@ -218,20 +218,65 @@ sub from_toml {
             }
         }
 
+        elsif ( $string =~ s/^\[\[([^]]+)\]\]\s*// ) {
+            my $array_of_tables = "$1";
+
+            $cur = undef;
+            my (@bits) = split /\./, $array_of_tables;
+
+        BIT: while ( my $bit = shift @bits ) {
+
+                my $position = $cur ? $cur->{$bit} : $toml{$bit};
+
+                if ( !$position ) {
+                    if ($cur) {
+                        $cur->{$bit} ||= [];
+                        push @{ $cur->{$bit} }, {};
+                        $cur = $cur->{$bit}->[-1];
+                    }
+                    else {
+                        $toml{$bit} ||= [];
+                        push @{ $toml{$bit} }, {};
+                        $cur = $toml{$bit}->[-1];
+                    }
+                }
+                elsif ( ref $position eq 'ARRAY' ) {
+                    unless ( @bits && ( $cur = $position->[-1] ) ) {
+                        $cur = {};
+                        push @{$position}, $cur;
+                    }
+                }
+                elsif (@bits) {
+                    $cur = $position;
+                    next BIT;
+                }
+                else {
+                    $err = "Table '$array_of_tables' already defined";
+                    last STRING;
+                }
+            }
+        }
+
         # New section
         elsif ($string =~ s/^\[([^]]+)\]\s*//) {
             my $section = "$1";
+
             $cur = undef;
             my @bits = split /\./, $section;
 
-            for my $bit (@bits) {
-                if ($cur) {
-                    $cur->{ $bit } ||= { };
-                    $cur = $cur->{ $bit };
+            while (my $bit = shift @bits) {
+                my $existing = $cur ? $cur->{$bit} : $toml{$bit};
+
+                if ( ref $existing eq 'ARRAY' ) {
+                    unless (@bits) {
+                        $err = "Key '$section' already exists";
+                        last STRING;
+                    }
+
+                    $cur = $existing->[-1] ||= { };
                 }
                 else {
-                    $toml{ $bit } ||= { };
-                    $cur = $toml{ $bit };
+                    $cur = $existing ||= { };
                 }
             }
         }
@@ -243,6 +288,9 @@ sub from_toml {
             return wantarray ? (undef, "$SYNTAX_ERROR at line $lineno: $err_bits") : undef;
         }
     }
+
+    use Data::Dumper::Concise;
+print Dumper(\%toml);
 
     return wantarray ? (\%toml, $err) : \%toml;
 }
